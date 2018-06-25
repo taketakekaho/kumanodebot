@@ -36,27 +36,36 @@ bot.set('storage', tableStorage);
 // Recognizer and and Dialog for preview QnAMaker service
 var previewRecognizer = new builder_cognitiveservices.QnAMakerRecognizer({
                 knowledgeBaseId: process.env.QnAKnowledgebaseId, 
-    authKey: process.env.QnAAuthKey || process.env.QnASubscriptionKey});
+    authKey: process.env.QnAAuthKey || process.env.QnASubscriptionKey,
+    top : 5
+    });
 
 var basicQnAMakerPreviewDialog = new builder_cognitiveservices.QnAMakerDialog({
     recognizers: [previewRecognizer],
-                defaultMessage: 'No match! Try changing the query terms!',
-                qnaThreshold: 0.3}
-);
+                defaultMessage: "候補が多数あり、絞り込めません。恐れ入りますが、再度、他の聞き方で試してください。\n例：「質問の表現を変える」、「キーワードを増やす」、「スペースを除く」等",
+                qnaThreshold: 0.1,
+                top : 5
+});
 
 bot.dialog('basicQnAMakerPreviewDialog', basicQnAMakerPreviewDialog);
+
+var cqnaMakerTools = new builder_cognitiveservices.QnAMakerTools();
+bot.library(cqnaMakerTools.createLibrary());
 
 // Recognizer and and Dialog for GA QnAMaker service
 var recognizer = new builder_cognitiveservices.QnAMakerRecognizer({
     knowledgeBaseId: process.env.QnAKnowledgebaseId,
     authKey: process.env.QnAAuthKey || process.env.QnASubscriptionKey,
-    endpointHostName: process.env.QnAEndpointHostName
+    endpointHostName: process.env.QnAEndpointHostName,
+    top : 5
 });
 
 var basicQnAMakerDialog = new builder_cognitiveservices.QnAMakerDialog({
     recognizers: [recognizer],
-    defaultMessage: 'No match! Try changing the query terms!',
-    qnaThreshold: 0.3
+    defaultMessage: "候補が多数あり、絞り込めません。恐れ入りますが、再度、他の聞き方で試してください。\n例：「質問の表現を変える」、「キーワードを増やす」、「スペースを除く」等",
+    qnaThreshold: 0.1,
+    top : 5,
+    feedbackLib: cqnaMakerTools
 }
 );
 
@@ -82,6 +91,23 @@ bot.dialog('/', //basicQnAMakerDialog);
         }       
     }
 ]);
+
+var instructions = '「ごみ分別に関してFAQ-BOTがお答えします。メッセージ欄に分別したいゴミの種類を入力してください。';
+
+bot.on('conversationUpdate', function(activity) {
+  // When user joins conversations, send instructions
+  if(activity.membersAdded) {
+    activity.membersAdded.forEach(function(identity) {
+      if(identity.id === activity.address.bot.id) {
+        var reply = new builder.Message()
+          .address(activity.address)
+          .text(instructions);
+        bot.send(reply);
+      }
+    });
+  }
+});
+
 
 if (useEmulator) {
     var restify = require('restify');
